@@ -15,40 +15,43 @@
 #include "map.h"
 #include "ros_bridge.h"
 
+
 // Map callback definition
-void callback_map(const nav_msgs::OccupancyGridConstPtr&);
+void callback_map(const nav_msgs::OccupancyGrid::ConstPtr&);
 // Initial pose callback definition
 void callback_initialpose(
-    const geometry_msgs::PoseWithCovarianceStampedConstPtr&);
+    const geometry_msgs::PoseWithCovarianceStamped::ConstPtr&);
 // Scan callback definition
-void callback_scan(const sensor_msgs::LaserScanConstPtr&);
+void callback_scan(const sensor_msgs::LaserScan::ConstPtr&);
+
 
 std::shared_ptr<Map> map_ptr = nullptr;
 ros::Publisher pub_scan, pub_odom;
-tf2_ros::TransformBroadcaster br;
+//tf2_ros::TransformBroadcaster br; 
 
 Localizer2D localizer;
 
-using namespace std;
 
 int main(int argc, char** argv) {
   // Initialize ROS system
-  ros::init(argc, argv, "localized_node");
+  ros::init(argc, argv, "localizer_node");
 
   ROS_INFO("Node started.");
-  cout << "Node started" << endl;
 
   // Create a NodeHandle to manage the node.
   // The namespace of the node is set to global
   ros::NodeHandle nh("/");
 
+  ROS_INFO("ok node");
   // Create shared pointer for the Map object
-  // TODO
+  
+  localizer = Localizer2D();
+  Map my_map = Map();
+  map_ptr.reset(&my_map);
+  localizer.setMap(map_ptr);
+  std::cerr << "-- setMap" << std::endl;
 
-  map_ptr = nullptr;  // TO DO
-
-  //
-  /**
+  /*
    * Subscribe to the topics:
    * /map [nav_msgs::OccupancyGrid]
    * /initialpose [geometry_msgs::PoseWithCovarianceStamped]
@@ -58,16 +61,21 @@ int main(int argc, char** argv) {
    * Advertise the following topic:
    * /odom_out [nav_msgs::Odometry]
    */
+  
+  
+  //ros::Subscriber sub_map =         nh.subscribe("/map/nav_msgs/OccupancyGrid", 1000, callback_map);
+  //ros::Subscriber sub_initialpose = nh.subscribe("/initialpose/geometry_msgs/PoseWithCovarianceStamped", 1000, callback_initialpose);
+  //ros::Subscriber sub_scan =        nh.subscribe("/base_scan/sensor_msgs/LaserScan", 1000, callback_scan);
 
-  ros::Subscriber sub_map =         nh.subscribe("/map/nav_msgs/OccupancyGrid", 1000, callback_map);
-  ros::Subscriber sub_initialpose = nh.subscribe("/initialpose/geometry_msgs/PoseWithCovarianceStamped", 1000, callback_initialpose);
-  ros::Subscriber sub_scan =        nh.subscribe("/base_scan/sensor_msgs/LaserScan", 1000, callback_scan);
+  ros::Subscriber sub_map =         nh.subscribe("/map", 1000, callback_map);
+  ros::Subscriber sub_initialpose = nh.subscribe("/initialpose", 1000, callback_initialpose);
+  ros::Subscriber sub_scan =        nh.subscribe("/base_scan", 1000, callback_scan);
 
   pub_odom = nh.advertise<nav_msgs::Odometry>("/odom_out",10);  
 
   // Scan advertiser for visualization purposes
   pub_scan = nh.advertise<sensor_msgs::LaserScan>("/scan_out", 10);
-
+  
   ROS_INFO("Node started. Waiting for input data");
 
   // Spin the node
@@ -76,45 +84,66 @@ int main(int argc, char** argv) {
   return 0;
 }
 
-void callback_map(const nav_msgs::OccupancyGridConstPtr& msg_) {
+void callback_map(const nav_msgs::OccupancyGrid::ConstPtr& msg_) {
   // If the internal map is not initialized, load the incoming occupancyGrid and
   // set the localizer map accordingly
   // Remember to load the map only once during the execution of the map.
 
-  cerr << "I heard: OccupancyGrid_msg "<< endl;
+  //ROS_INFO("I heard: OccupancyGrid_msg ");
 
-  // TODO
+  if(!map_ptr->initialized()){
+    map_ptr->loadOccupancyGrid(msg_);
+    std::cerr << "-- loadOccupancyGrid\n";
+  }
 }
 
 void callback_initialpose(
-    const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg_) {
+    const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg_) {
+    // const geometry_msgs::PoseWithCovarianceStampedConstPtr& msg_  
   /**
    * Convert the PoseWithCovarianceStamped message to an Eigen Isometry and
    * inform the localizer.
    * You can check ros_bridge.h for helps :)
    */
+   
+  
+    ROS_INFO("I heard: PoseWithCovarianceStamped_msg ");
 
-   cerr << "I heard: PoseWithCovarianceStamped_msg "<< endl;
+    Eigen::Isometry2f iso;
+    pose2isometry(msg_->pose.pose,iso);
+    localizer.setInitialPose(iso);
+    std::cerr << "-- setInitialPose\n";
 
-  // TODO
 }
 
-void callback_scan(const sensor_msgs::LaserScanConstPtr& msg_) {
+void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
   /**
    * Convert the LaserScan message into a Localizer2D::ContainerType
    * [std::vector<Eigen::Vector2f, Eigen::aligned_allocator<Eigen::Vector2f>>]
    */
-  // TODO
 
-  cerr << "I heard: LaserScan_msg "<< endl;
+  tf2_ros::TransformBroadcaster br;
+  //ROS_INFO("I heard: LaserScan_msg ");
+
+  std::vector<Eigen::Vector2f, Eigen::aligned_allocator<Eigen::Vector2f>> my_vect;
+  scan2eigen(msg_, my_vect);
 
   /**
    * Set the laser parameters and process the incoming scan through the
    * localizer
    */
-  // TODO
+  
+  float rmin = msg_->range_min;
+  float rmax = msg_->range_max;
+  float amin = msg_->angle_min;
+  float amax = msg_->angle_max;
+  float ainc = msg_->angle_increment;
 
-  /**
+  localizer.setLaserParams( rmin, rmax, amin, amax, ainc );
+  //std::cerr << "-- setLaserParams\n";
+
+
+  /** 
    * Send a transform message between FRAME_WORLD and FRAME_LASER.
    * The transform should contain the pose of the laser with respect to the map
    * frame.
@@ -127,6 +156,25 @@ void callback_scan(const sensor_msgs::LaserScanConstPtr& msg_) {
    */
   // TODO
 
+  /*
+  void isometry2transformStamped(const Eigen::Isometry2f& pose_,
+                               geometry_msgs::TransformStamped& msg_,
+                               const std::string& frame_id_,
+                               const std::string& child_frame_id_,
+                               const ros::Time& stamp_) {
+  */
+
+  Eigen::Isometry2f pose_laser_world = localizer.X();
+
+  // must do a transformation, find it
+
+  geometry_msgs::TransformStamped transform_stamped_message;
+  isometry2transformStamped(pose_laser_world, 
+                            transform_stamped_message,
+                            FRAME_WORLD,
+                            FRAME_LASER,
+                            msg_->header.stamp);
+
   /**
    * Send a nav_msgs::Odometry message containing the current laser_in_world
    * transform.
@@ -134,6 +182,13 @@ void callback_scan(const sensor_msgs::LaserScanConstPtr& msg_) {
    * TransformStamped message to a nav_msgs::Odometry message.
    */
   // TODO
+
+
+  nav_msgs::Odometry odometry_message;
+  transformStamped2odometry(transform_stamped_message,
+                            odometry_message);
+
+  pub_odom.publish(odometry_message);
 
   // Sends a copy of msg_ with FRAME_LASER set as frame_id
   // Used to visualize the scan attached to the current laser estimate.
