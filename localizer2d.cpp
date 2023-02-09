@@ -22,7 +22,7 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
    * Finally instantiate the KD-Tree (obst_tree_ptr) on the vector.
    */
  
-  //std::cerr << map_->rows() << std::endl;
+  //std::cerr << _map->rows() << std::endl;
   //std::cerr << _map->initialized() << std::endl;
   //std::cerr << ( _map->rows() != 0 )<< std::endl;
 
@@ -32,13 +32,13 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
     return;
   }
 
-
-  std::cerr << "-- initialized\n";
-
   cv::Mat world_map = _map->map();
   cv::Size2i matrix_size = _map->size();
   auto mat_rows = matrix_size.height;
   auto mat_cols = matrix_size.width;
+
+  //std::cerr << "rows: " << mat_rows << std::endl;
+  //std::cerr << "cols: " << mat_cols << std::endl;
 
   for( int r=0; r < mat_rows; r++){
     for( int c=0; c < mat_cols; c++){
@@ -49,15 +49,16 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
         Eigen::Vector2f converted_point = Eigen::Vector2f(r,c);
         _obst_vect.push_back(converted_point);
         
-        std::cerr << converted_point << std::endl;
+        //std::cerr << converted_point << std::endl;
       }
 
     }
 
   }
 
+  std::cerr << "setMap -> size: " << _obst_vect.size() << std::endl;
+
   // Create KD-Tree
-  // TODO
   
   using my_ContainerType = std::vector<Vector2f, Eigen::aligned_allocator<Vector2f> >;
   using TreeNodeType = TreeNode_<my_ContainerType::iterator>;
@@ -65,8 +66,6 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
   TreeNodeType my_kd_tree(_obst_vect.begin(), _obst_vect.end(), 10);
 
   _obst_tree_ptr.reset( &my_kd_tree);
-
-
 
 }
 
