@@ -29,6 +29,9 @@ std::shared_ptr<Map> map_ptr = nullptr;
 ros::Publisher pub_scan, pub_odom;
 ros::Subscriber sub_map, sub_initialpose, sub_scan;
 
+// used to don't print several time laser_scan_message
+sensor_msgs::LaserScan::ConstPtr last_scan_msg;
+
 //tf2_ros::TransformBroadcaster br; 
 
 Localizer2D localizer;
@@ -93,14 +96,8 @@ void callback_map(const nav_msgs::OccupancyGrid::ConstPtr& msg_) {
   if(!map_ptr->initialized()){
     map_ptr->loadOccupancyGrid(msg_);
 
-
-    //std::cerr << map_ptr->rows() << std::endl;
-    //std::cerr << map_ptr->cols() << std::endl;
-    //std::cerr << map_ptr->initialized() << std::endl;
-
     std::cerr << "-- map_ptr, occupancy grid" << map_ptr << std::endl;
     std::cerr << "-- loadOccupancyGrid\n";
-
 
     localizer.setMap(map_ptr);
     std::cerr << "-- setMap\n";
@@ -133,11 +130,17 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
    */
 
   tf2_ros::TransformBroadcaster br;
-  //ROS_INFO("I heard: LaserScan_msg ");
 
+  if(last_scan_msg == nullptr || last_scan_msg->ranges!= msg_->ranges){
+    ROS_INFO("I heard new: LaserScan_msg ");
+    last_scan_msg = msg_;
+  }
+  else return;  //add at the end do don't process when does not need
+
+  // it contain all point of the laser
   std::vector<Eigen::Vector2f, Eigen::aligned_allocator<Eigen::Vector2f>> my_vect;
   scan2eigen(msg_, my_vect);
-
+  localizer.process(my_vect);
   /**
    * Set the laser parameters and process the incoming scan through the
    * localizer
@@ -165,14 +168,6 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
    * received message (msg_->header.stamp)
    */
   // TODO
-
-  /*
-  void isometry2transformStamped(const Eigen::Isometry2f& pose_,
-                               geometry_msgs::TransformStamped& msg_,
-                               const std::string& frame_id_,
-                               const std::string& child_frame_id_,
-                               const ros::Time& stamp_) {
-  */
 
   Eigen::Isometry2f pose_laser_world = localizer.X();
 
@@ -206,8 +201,8 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
   sensor_msgs::LaserScan out_scan = *msg_;
   out_scan.header.frame_id = FRAME_LASER;
 
-  out_scan .scan_time =out_scan .scan_time/1000000000.0;
-  out_scan .time_increment = out_scan .time_increment/1000000000.0;
+  //out_scan.scan_time =out_scan .scan_time/1000000000.0;
+  //out_scan.time_increment = out_scan .time_increment/1000000000.0;
 
   pub_scan.publish(out_scan);
 }

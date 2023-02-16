@@ -94,6 +94,13 @@ void Localizer2D::process(const ContainerType& scan_) {
 
   getPrediction(prediction);
 
+  if( scan_ != prediction){
+    std::cerr << "-- different " << std::endl;
+  }
+  else{
+    std::cerr << "-- equal " << std::endl;
+  }
+
 
   /**
    * Align prediction and scan_ using ICP.
@@ -103,7 +110,11 @@ void Localizer2D::process(const ContainerType& scan_) {
   // TODO
 
   ICP my_icp = ICP(scan_, prediction, 10);
+
+
+  std::cerr << X().translation() << std::endl;
   my_icp.run(10);
+  std::cerr << "-- icp runned" << std::endl;
 
   /**
    * Store the solver result (X) as the new laser_in_world estimate
@@ -112,6 +123,7 @@ void Localizer2D::process(const ContainerType& scan_) {
   // TODO
 
   setInitialPose(my_icp.X());
+  std::cerr << X().translation() << std::endl;
 }
 
 /**
@@ -166,6 +178,8 @@ void Localizer2D::getPrediction(ContainerType& prediction_) {
       prediction_.push_back(dist_vector);
     }
   }
+
+  // now I should understand how use kd-tree.  
 
   // using ContainerType = std::vector<PointType, Eigen::aligned_allocator<PointType>>;
   // using AnswerType = std::vector<PointType*>; // type used by kd-tree
