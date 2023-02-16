@@ -16,6 +16,7 @@ Localizer2D::Localizer2D()
 void Localizer2D::setMap(std::shared_ptr<Map> map_) {
   // Set the internal map pointer
   _map = map_;
+  bool setMap_debug = true;
   /**
    * If the map is initialized, fill the _obst_vect vector with world
    * coordinates of all cells representing obstacles.
@@ -37,8 +38,8 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
   auto mat_rows = matrix_size.height;
   auto mat_cols = matrix_size.width;
 
-  //std::cerr << "rows: " << mat_rows << std::endl;
-  //std::cerr << "cols: " << mat_cols << std::endl;
+  if( setMap_debug ){ std::cerr << "-- setMap -> rows: " << mat_rows << std::endl;
+                      std::cerr << "-- setMap -> cols: " << mat_cols << std::endl; }
 
   for( int r=0; r < mat_rows; r++){
     for( int c=0; c < mat_cols; c++){
@@ -56,7 +57,7 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
 
   }
 
-  std::cerr << "setMap -> size: " << _obst_vect.size() << std::endl;
+  if(setMap_debug){ std::cerr << "-- setMap -> size: " << _obst_vect.size() << std::endl; }
 
   // Create KD-Tree
   
@@ -88,6 +89,12 @@ void Localizer2D::process(const ContainerType& scan_) {
   // Use initial pose to get a synthetic scan to compare with scan_
   // TODO
 
+  Eigen::Isometry2f init_pose = X();  
+  ContainerType prediction;
+
+  getPrediction(prediction);
+
+
   /**
    * Align prediction and scan_ using ICP.
    * Set the current estimate of laser in world as initial guess (replace the
@@ -95,11 +102,16 @@ void Localizer2D::process(const ContainerType& scan_) {
    */
   // TODO
 
+  ICP my_icp = ICP(scan_, prediction, 10);
+  my_icp.run(10);
+
   /**
    * Store the solver result (X) as the new laser_in_world estimate
    *
    */
   // TODO
+
+  setInitialPose(my_icp.X());
 }
 
 /**
@@ -142,4 +154,20 @@ void Localizer2D::getPrediction(ContainerType& prediction_) {
    * You may use additional sensor's informations to refine the prediction.
    */
   // TODO
+
+  Eigen::Isometry2f init_pose = X();
+
+  for( auto ob : _obst_vect){
+    
+    auto dist_vector = ob - init_pose.translation();
+    auto dist = dist_vector.norm();
+
+    if( dist <= _range_max){
+      prediction_.push_back(dist_vector);
+    }
+  }
+
+  // using ContainerType = std::vector<PointType, Eigen::aligned_allocator<PointType>>;
+  // using AnswerType = std::vector<PointType*>; // type used by kd-tree
+
 }
