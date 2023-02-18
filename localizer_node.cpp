@@ -119,6 +119,9 @@ void callback_initialpose(
     Eigen::Isometry2f iso;
     pose2isometry(msg_->pose.pose,iso);
     localizer.setInitialPose(iso);
+    
+  std::cerr << localizer.X().translation() << std::endl;
+  std::cerr << localizer.X().linear() << std::endl;
     std::cerr << "-- setInitialPose\n";
 
 }
@@ -138,9 +141,9 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
   else return;  //add at the end do don't process when does not need
 
   // it contain all point of the laser
-  std::vector<Eigen::Vector2f, Eigen::aligned_allocator<Eigen::Vector2f>> my_vect;
-  scan2eigen(msg_, my_vect);
-  localizer.process(my_vect);
+  std::vector<Eigen::Vector2f, Eigen::aligned_allocator<Eigen::Vector2f>> scanned_point;
+  scan2eigen(msg_, scanned_point);
+
   /**
    * Set the laser parameters and process the incoming scan through the
    * localizer
@@ -153,8 +156,6 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
   float ainc = msg_->angle_increment;
 
   localizer.setLaserParams( rmin, rmax, amin, amax, ainc );
-  //std::cerr << "-- setLaserParams\n";
-
 
   /** 
    * Send a transform message between FRAME_WORLD and FRAME_LASER.
@@ -169,9 +170,8 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
    */
   // TODO
 
+  localizer.process(scanned_point);
   Eigen::Isometry2f pose_laser_world = localizer.X();
-
-  // must do a transformation, find it
 
   geometry_msgs::TransformStamped transform_stamped_message;
   isometry2transformStamped(pose_laser_world, 
@@ -200,9 +200,6 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
   // Used to visualize the scan attached to the current laser estimate.
   sensor_msgs::LaserScan out_scan = *msg_;
   out_scan.header.frame_id = FRAME_LASER;
-
-  //out_scan.scan_time =out_scan .scan_time/1000000000.0;
-  //out_scan.time_increment = out_scan .time_increment/1000000000.0;
 
   pub_scan.publish(out_scan);
 }

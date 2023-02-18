@@ -77,6 +77,7 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
  */
 void Localizer2D::setInitialPose(const Eigen::Isometry2f& initial_pose_) {
   _laser_in_world = initial_pose_;
+  std::cerr << "-- setted new pose" << std::endl;
 }
 
 /**
@@ -89,7 +90,6 @@ void Localizer2D::process(const ContainerType& scan_) {
   // Use initial pose to get a synthetic scan to compare with scan_
   // TODO
 
-  Eigen::Isometry2f init_pose = X();  
   ContainerType prediction;
 
   getPrediction(prediction);
@@ -109,12 +109,13 @@ void Localizer2D::process(const ContainerType& scan_) {
    */
   // TODO
 
-  ICP my_icp = ICP(scan_, prediction, 10);
+  ICP my_icp = ICP(scan_, prediction, 5);
 
 
+  std::cerr << "-- old: translation + rotation " << std::endl;
   std::cerr << X().translation() << std::endl;
-  my_icp.run(10);
-  std::cerr << "-- icp runned" << std::endl;
+  std::cerr << X().linear() << std::endl;
+  my_icp.run(100);
 
   /**
    * Store the solver result (X) as the new laser_in_world estimate
@@ -122,8 +123,19 @@ void Localizer2D::process(const ContainerType& scan_) {
    */
   // TODO
 
-  setInitialPose(my_icp.X());
+  std::cerr << "--icp: translation + rotation " << std::endl;
+  std::cerr << my_icp.X().translation() << std::endl;
+  std::cerr << my_icp.X().linear() << std::endl;
+
+  Eigen::Isometry2f new_iso;
+  new_iso.translation() = X().translation() + my_icp.X().translation();
+  new_iso.linear() = my_icp.X().linear();
+
+  setInitialPose(new_iso);
+  std::cerr << "-- new: translation + rotation " << std::endl;
   std::cerr << X().translation() << std::endl;
+  std::cerr << X().linear() << std::endl;
+  std::cerr << "--------------------- " << std::endl;
 }
 
 /**
@@ -167,17 +179,27 @@ void Localizer2D::getPrediction(ContainerType& prediction_) {
    */
   // TODO
 
-  Eigen::Isometry2f init_pose = X();
+
+  using AnswerType = std::vector<Vector2f*>;
+  AnswerType prediction;
 
   for( auto ob : _obst_vect){
     
-    auto dist_vector = ob - init_pose.translation();
+    auto dist_vector = X().translation() - ob;
     auto dist = dist_vector.norm();
 
     if( dist <= _range_max){
-      prediction_.push_back(dist_vector);
+      prediction_.push_back(ob);
     }
+
   }
+
+
+  /*for( auto v : my_obstacles){
+    Vector2f my_point;
+    _obst_tree_ptr->bestMatchFast(my_point, v, 1);
+    prediction_.push_back(my_point);
+  }*/
 
   // now I should understand how use kd-tree.  
 
