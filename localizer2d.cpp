@@ -57,16 +57,13 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
 
   }
 
-  if(setMap_debug){ std::cerr << "-- setMap -> size: " << _obst_vect.size() << std::endl; }
-
   // Create KD-Tree
-  
-  using my_ContainerType = std::vector<Vector2f, Eigen::aligned_allocator<Vector2f> >;
-  using TreeNodeType = TreeNode_<my_ContainerType::iterator>;
-
-  TreeNodeType my_kd_tree(_obst_vect.begin(), _obst_vect.end(), 10);
+  TreeType my_kd_tree(_obst_vect.begin(), _obst_vect.end(), 10);
 
   _obst_tree_ptr.reset( &my_kd_tree);
+
+  if(setMap_debug){ std::cerr << "-- setMap and kd-tree-> size: " << _obst_vect.size() << std::endl; }
+
 
 }
 
@@ -179,20 +176,44 @@ void Localizer2D::getPrediction(ContainerType& prediction_) {
    */
   // TODO
 
+  TreeType::AnswerType neighbors;
+  std::cerr << "-- ok\n";
+  for( auto ob : _obst_vect){
+    
+    auto dist_vector = X().translation() - ob;
+    auto dist = dist_vector.norm();
 
+    std::cerr << "-- dist_vector: \n" << dist_vector << std::endl;
+    std::cerr << "-- norm: " << dist << std::endl;
+    std::cerr << "-- obstacle: \n" << ob << std::endl;
+
+    auto my_point = _obst_tree_ptr->bestMatchFast(ob, 10);
+    neighbors.push_back(my_point);
+
+    //std::cerr << "-- searched\n" << my_point << std::endl;
+
+    /*
+    if( dist <= _range_max){
+      std::cerr << "-- searching\n";
+     // _obst_tree_ptr->fastSearch(neighbors, X().translation(), 10);
+    }*/
+  }
+
+  /*
   using AnswerType = std::vector<Vector2f*>;
   AnswerType prediction;
 
   for( auto ob : _obst_vect){
     
     auto dist_vector = X().translation() - ob;
+
     auto dist = dist_vector.norm();
 
     if( dist <= _range_max){
       prediction_.push_back(ob);
     }
-
-  }
+  
+  }*/
 
 
   /*for( auto v : my_obstacles){

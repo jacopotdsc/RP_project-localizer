@@ -117,6 +117,9 @@ void callback_initialpose(
     ROS_INFO("I heard: PoseWithCovarianceStamped_msg ");
 
     Eigen::Isometry2f iso;
+
+    std::cerr << localizer.X().translation() << std::endl;
+    std::cerr << localizer.X().linear() << std::endl;
     pose2isometry(msg_->pose.pose,iso);
     localizer.setInitialPose(iso);
     
@@ -133,6 +136,9 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
    */
 
   tf2_ros::TransformBroadcaster br;
+
+  if(localizer.X().isApprox(Eigen::Isometry2f::Identity()) ) return;
+  if(!map_ptr->initialized()) return;
 
   if(last_scan_msg == nullptr || last_scan_msg->ranges!= msg_->ranges){
     ROS_INFO("I heard new: LaserScan_msg ");
