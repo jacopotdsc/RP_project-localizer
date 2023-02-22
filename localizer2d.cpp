@@ -1,6 +1,8 @@
 #include "localizer2d.h"
 
 #include "icp/eigen_icp_2d.h"
+#include "ros_bridge.h"
+#include <typeinfo>
 
 Localizer2D::Localizer2D()
     : _map(nullptr),
@@ -41,13 +43,31 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
   if( setMap_debug ){ std::cerr << "-- setMap -> rows: " << mat_rows << std::endl;
                       std::cerr << "-- setMap -> cols: " << mat_cols << std::endl; }
 
+  auto it_start = world_map.begin();
+  auto it_end = world_map.end();
+
+  for(auto it = it_start; it != it_end; it++){
+
+    auto p = *it;
+    auto point_in_grid = cv::Point2i(p);
+
+    if(point_in_grid == CellType::Occupied){
+        auto converted_point = _map->grid2world(point_in_grid);
+        _obst_vect.push_back(converted_point);
+        
+        //std::cerr << converted_point << std::endl;
+      }
+  }
+
+  /*
   for( int r=0; r < mat_rows; r++){
     for( int c=0; c < mat_cols; c++){
 
-      auto point_in_map = (*_map)(r,c);
+      auto point_in_grid = world_map.at<cv::Point2i>(r,c);
 
-      if(point_in_map == CellType::Occupied){
-        Eigen::Vector2f converted_point = Eigen::Vector2f(r,c);
+      if(point_in_grid == CellType::Occupied){
+        //Eigen::Vector2f converted_point = Eigen::Vector2f(r,c);
+        auto converted_point = _map->grid2world(point_in_grid);
         _obst_vect.push_back(converted_point);
         
         //std::cerr << converted_point << std::endl;
@@ -55,12 +75,13 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
 
     }
 
-  }
+  }*/
 
   // Create KD-Tree
   TreeType my_kd_tree(_obst_vect.begin(), _obst_vect.end(), 10);
 
-  _obst_tree_ptr.reset( &my_kd_tree);
+ // _obst_tree_ptr.reset( &my_kd_tree);
+  _obst_tree_ptr = std::make_shared<TreeType>(_obst_vect.begin(), _obst_vect.end(), 10);
 
   if(setMap_debug){ std::cerr << "-- setMap and kd-tree-> size: " << _obst_vect.size() << std::endl; }
 
@@ -98,6 +119,11 @@ void Localizer2D::process(const ContainerType& scan_) {
     std::cerr << "-- equal " << std::endl;
   }
 
+  // for debug
+  //sensor_msgs::LaserScan::ConstPtr my_scan_msg = nullptr;
+  //auto debug_scan_msg = eigen2scan(prediction, my_scan_msg, _range_min, _range_max, _angle_min, _angle_max, _angle_increment);
+  //pub_scan.publish(my_scan_msg);
+  /////////
 
   /**
    * Align prediction and scan_ using ICP.
@@ -107,7 +133,7 @@ void Localizer2D::process(const ContainerType& scan_) {
   // TODO
 
   ICP my_icp = ICP(scan_, prediction, 5);
-
+  my_icp.X() = X();
 
   std::cerr << "-- old: translation + rotation " << std::endl;
   std::cerr << X().translation() << std::endl;
@@ -125,7 +151,7 @@ void Localizer2D::process(const ContainerType& scan_) {
   std::cerr << my_icp.X().linear() << std::endl;
 
   Eigen::Isometry2f new_iso;
-  new_iso.translation() = X().translation() + my_icp.X().translation();
+  new_iso.translation() = my_icp.X().translation();
   new_iso.linear() = my_icp.X().linear();
 
   setInitialPose(new_iso);
@@ -178,6 +204,15 @@ void Localizer2D::getPrediction(ContainerType& prediction_) {
 
   TreeType::AnswerType neighbors;
   std::cerr << "-- ok\n";
+
+  _obst_tree_ptr->fullSearch(neighbors, X().translation(), _range_max);
+
+  for( auto n: neighbors){
+    prediction_.push_back(*n);
+  }
+  return;
+
+  /*
   for( auto ob : _obst_vect){
     
     auto dist_vector = X().translation() - ob;
@@ -186,6 +221,7 @@ void Localizer2D::getPrediction(ContainerType& prediction_) {
     std::cerr << "-- dist_vector: \n" << dist_vector << std::endl;
     std::cerr << "-- norm: " << dist << std::endl;
     std::cerr << "-- obstacle: \n" << ob << std::endl;
+
 
     auto my_point = _obst_tree_ptr->bestMatchFast(ob, 10);
     neighbors.push_back(my_point);
@@ -197,34 +233,6 @@ void Localizer2D::getPrediction(ContainerType& prediction_) {
       std::cerr << "-- searching\n";
      // _obst_tree_ptr->fastSearch(neighbors, X().translation(), 10);
     }*/
-  }
-
-  /*
-  using AnswerType = std::vector<Vector2f*>;
-  AnswerType prediction;
-
-  for( auto ob : _obst_vect){
-    
-    auto dist_vector = X().translation() - ob;
-
-    auto dist = dist_vector.norm();
-
-    if( dist <= _range_max){
-      prediction_.push_back(ob);
-    }
   
-  }*/
-
-
-  /*for( auto v : my_obstacles){
-    Vector2f my_point;
-    _obst_tree_ptr->bestMatchFast(my_point, v, 1);
-    prediction_.push_back(my_point);
-  }*/
-
-  // now I should understand how use kd-tree.  
-
-  // using ContainerType = std::vector<PointType, Eigen::aligned_allocator<PointType>>;
-  // using AnswerType = std::vector<PointType*>; // type used by kd-tree
 
 }
