@@ -51,7 +51,11 @@ int main(int argc, char** argv) {
   
   localizer = Localizer2D();
   Map my_map = Map();
-  map_ptr.reset(&my_map);
+  map_ptr = std::make_shared<Map>();
+  //localizer.setMap(map_ptr);
+  //map_ptr.reset(&my_map);
+
+  
 
   /*
    * Subscribe to the topics:
@@ -92,6 +96,7 @@ void callback_map(const nav_msgs::OccupancyGrid::ConstPtr& msg_) {
   // Remember to load the map only once during the execution of the map.
 
   ROS_INFO("I heard: OccupancyGrid_msg ");
+  std::cerr << "-- data length: " << (msg_->data).size() << std::endl;
 
   if(!map_ptr->initialized()){
     map_ptr->loadOccupancyGrid(msg_);
@@ -138,6 +143,7 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
   tf2_ros::TransformBroadcaster br;
 
   if(localizer.X().isApprox(Eigen::Isometry2f::Identity()) ) return;
+
   if(!map_ptr->initialized()) return;
 
   if(last_scan_msg == nullptr || last_scan_msg->ranges!= msg_->ranges){

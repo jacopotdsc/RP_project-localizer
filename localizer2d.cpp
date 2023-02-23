@@ -35,7 +35,7 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
     return;
   }
 
-  cv::Mat world_map = _map->map();
+  Map world_map = (*_map);
   cv::Size2i matrix_size = _map->size();
   auto mat_rows = matrix_size.height;
   auto mat_cols = matrix_size.width;
@@ -43,10 +43,11 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
   if( setMap_debug ){ std::cerr << "-- setMap -> rows: " << mat_rows << std::endl;
                       std::cerr << "-- setMap -> cols: " << mat_cols << std::endl; }
 
+  /*
   auto it_start = world_map.begin();
   auto it_end = world_map.end();
 
-  for(auto it = it_start; it != it_end; it++){
+  for(auto it = world_map.begin(); it != world_map.end(); it++){
 
     auto p = *it;
     auto point_in_grid = cv::Point2i(p);
@@ -57,25 +58,31 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
         
         //std::cerr << converted_point << std::endl;
       }
-  }
+  }*/
 
-  /*
   for( int r=0; r < mat_rows; r++){
     for( int c=0; c < mat_cols; c++){
 
-      auto point_in_grid = world_map.at<cv::Point2i>(r,c);
+      //auto point_in_grid = world_map.at<cv::Point2i>(r,c);
+      //std::cerr << point_in_grid << std::endl;
+
+      auto point_in_grid = (*_map)(r,c);
+      //auto converted_point = (*_map).grid2world(point_in_grid);
+
+      //std::cerr << "qui----> " << point_in_grid << std::endl;
 
       if(point_in_grid == CellType::Occupied){
-        //Eigen::Vector2f converted_point = Eigen::Vector2f(r,c);
-        auto converted_point = _map->grid2world(point_in_grid);
+        float r_new = r * 0.05; // + (int)_map->origin().x();
+        float c_new = c * 0.05; // + (int)_map->origin().y();
+
+        Eigen::Vector2f converted_point = Eigen::Vector2f(r_new,c_new);
         _obst_vect.push_back(converted_point);
         
         //std::cerr << converted_point << std::endl;
       }
-
     }
 
-  }*/
+  }
 
   // Create KD-Tree
   TreeType my_kd_tree(_obst_vect.begin(), _obst_vect.end(), 10);
@@ -94,7 +101,15 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
  * @param initial_pose_
  */
 void Localizer2D::setInitialPose(const Eigen::Isometry2f& initial_pose_) {
-  _laser_in_world = initial_pose_;
+
+  if(X().isApprox(Eigen::Isometry2f::Identity())){
+    _laser_in_world.translation() = initial_pose_.translation()*0.05;
+    _laser_in_world.linear() = initial_pose_.linear();
+    std::cerr << "-- first pose " << std::endl;
+  }
+  else{
+    _laser_in_world = initial_pose_;
+  }
   std::cerr << "-- setted new pose" << std::endl;
 }
 
@@ -111,13 +126,15 @@ void Localizer2D::process(const ContainerType& scan_) {
   ContainerType prediction;
 
   getPrediction(prediction);
+  std::cerr << "-- predicted data length: " << prediction.size() << std::endl;
 
+  /*
   if( scan_ != prediction){
     std::cerr << "-- different " << std::endl;
   }
   else{
     std::cerr << "-- equal " << std::endl;
-  }
+  }*/
 
   // for debug
   //sensor_msgs::LaserScan::ConstPtr my_scan_msg = nullptr;
@@ -135,10 +152,10 @@ void Localizer2D::process(const ContainerType& scan_) {
   ICP my_icp = ICP(scan_, prediction, 5);
   my_icp.X() = X();
 
-  std::cerr << "-- old: translation + rotation " << std::endl;
-  std::cerr << X().translation() << std::endl;
-  std::cerr << X().linear() << std::endl;
-  my_icp.run(100);
+  //std::cerr << "-- old: translation + rotation " << std::endl;
+  //std::cerr << X().translation() << std::endl;
+  //std::cerr << X().linear() << std::endl;
+  my_icp.run(30);
 
   /**
    * Store the solver result (X) as the new laser_in_world estimate
@@ -146,18 +163,14 @@ void Localizer2D::process(const ContainerType& scan_) {
    */
   // TODO
 
-  std::cerr << "--icp: translation + rotation " << std::endl;
-  std::cerr << my_icp.X().translation() << std::endl;
-  std::cerr << my_icp.X().linear() << std::endl;
-
   Eigen::Isometry2f new_iso;
   new_iso.translation() = my_icp.X().translation();
   new_iso.linear() = my_icp.X().linear();
 
   setInitialPose(new_iso);
-  std::cerr << "-- new: translation + rotation " << std::endl;
-  std::cerr << X().translation() << std::endl;
-  std::cerr << X().linear() << std::endl;
+  std::cerr << "-- new: translation: [ " << X().translation()[0] << ", " << X().translation()[1] << " ]" << std::endl;
+  //std::cerr << X().translation() << std::endl;
+  //std::cerr << X().linear() << std::endl;
   std::cerr << "--------------------- " << std::endl;
 }
 
@@ -203,9 +216,9 @@ void Localizer2D::getPrediction(ContainerType& prediction_) {
   // TODO
 
   TreeType::AnswerType neighbors;
-  std::cerr << "-- ok\n";
 
   _obst_tree_ptr->fullSearch(neighbors, X().translation(), _range_max);
+  //std::cerr << "-- neighbors: " << neighbors.size() << std::endl;
 
   for( auto n: neighbors){
     prediction_.push_back(*n);
