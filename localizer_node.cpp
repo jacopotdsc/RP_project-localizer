@@ -96,7 +96,6 @@ void callback_map(const nav_msgs::OccupancyGrid::ConstPtr& msg_) {
   // Remember to load the map only once during the execution of the map.
 
   ROS_INFO("I heard: OccupancyGrid_msg ");
-  std::cerr << "-- data length: " << (msg_->data).size() << std::endl;
 
   if(!map_ptr->initialized()){
     map_ptr->loadOccupancyGrid(msg_);
@@ -122,14 +121,11 @@ void callback_initialpose(
     ROS_INFO("I heard: PoseWithCovarianceStamped_msg ");
 
     Eigen::Isometry2f iso;
-
-    std::cerr << localizer.X().translation() << std::endl;
-    std::cerr << localizer.X().linear() << std::endl;
     pose2isometry(msg_->pose.pose,iso);
     localizer.setInitialPose(iso);
     
-  std::cerr << localizer.X().translation() << std::endl;
-  std::cerr << localizer.X().linear() << std::endl;
+    std::cerr << localizer.X().translation() << std::endl;
+    std::cerr << localizer.X().linear() << std::endl;
     std::cerr << "-- setInitialPose\n";
 
 }

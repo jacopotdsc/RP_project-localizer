@@ -24,11 +24,6 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
    * coordinates of all cells representing obstacles.
    * Finally instantiate the KD-Tree (obst_tree_ptr) on the vector.
    */
- 
-  //std::cerr << _map->rows() << std::endl;
-  //std::cerr << _map->initialized() << std::endl;
-  //std::cerr << ( _map->rows() != 0 )<< std::endl;
-
   
   if(_map->initialized() == 0){
     std::cerr << "-- map not initialized" << std::endl;
@@ -36,47 +31,41 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
   }
 
   Map world_map = (*_map);
+
+  auto map_rows = 100 * std::ceil( world_map.rows() * world_map.resolution() );
+  auto map_cols = 100 * std::ceil( world_map.cols() * world_map.resolution() );
+
   cv::Size2i matrix_size = _map->size();
   auto mat_rows = matrix_size.height;
   auto mat_cols = matrix_size.width;
 
-  if( setMap_debug ){ std::cerr << "-- setMap -> rows: " << mat_rows << std::endl;
-                      std::cerr << "-- setMap -> cols: " << mat_cols << std::endl; }
+  if( setMap_debug ){ std::cerr << "-- setMap -> rows: " << mat_rows << ", map_rows: " << map_rows << std::endl;
+                      std::cerr << "-- setMap -> cols: " << mat_cols << ", map_cols: " << map_cols << std::endl; }
 
-  /*
-  auto it_start = world_map.begin();
-  auto it_end = world_map.end();
-
-  for(auto it = world_map.begin(); it != world_map.end(); it++){
-
-    auto p = *it;
-    auto point_in_grid = cv::Point2i(p);
-
-    if(point_in_grid == CellType::Occupied){
-        auto converted_point = _map->grid2world(point_in_grid);
-        _obst_vect.push_back(converted_point);
-        
-        //std::cerr << converted_point << std::endl;
-      }
-  }*/
+  float orig_x = -53.45;
+  float orig_y = -21.64;
+  std::cerr << "origin.x = " << orig_x << "\norigin.y = " << orig_y << std::endl;
 
   for( int r=0; r < mat_rows; r++){
     for( int c=0; c < mat_cols; c++){
 
-      //auto point_in_grid = world_map.at<cv::Point2i>(r,c);
-      //std::cerr << point_in_grid << std::endl;
-
       auto point_in_grid = (*_map)(r,c);
-      //auto converted_point = (*_map).grid2world(point_in_grid);
-
-      //std::cerr << "qui----> " << point_in_grid << std::endl;
 
       if(point_in_grid == CellType::Occupied){
-        float r_new = r * 0.05; // + (int)_map->origin().x();
-        float c_new = c * 0.05; // + (int)_map->origin().y();
+        int x_map = std::floor( r * _map->resolution() );
+        int y_map = std::floor( c * _map->resolution() );
 
-        Eigen::Vector2f converted_point = Eigen::Vector2f(r_new,c_new);
+        Eigen::Vector2f converted_point = Eigen::Vector2f(r, c);
         _obst_vect.push_back(converted_point);
+
+        /*
+        if (std::find(_obst_vect.begin(), _obst_vect.end(), converted_point) != _obst_vect.end()) {
+          continue;
+        }
+        else{
+          _obst_vect.push_back(converted_point);
+        }*/
+        
         
         //std::cerr << converted_point << std::endl;
       }
@@ -102,10 +91,23 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
  */
 void Localizer2D::setInitialPose(const Eigen::Isometry2f& initial_pose_) {
 
+  Eigen::Isometry2f new_init_pose;
+  Eigen::Vector2f new_vector;
+  new_vector.x() = _map->origin().x();
+  new_vector.y() = _map->origin().y();
+
+  new_init_pose.translation() = initial_pose_.translation();
+
+  //new_init_pose.translation()[0] = std::ceil( new_init_pose.translation()[0] * _map->resolution() - 52 );
+  //new_init_pose.translation()[1] = std::ceil( new_init_pose.translation()[1] * _map->resolution() - 22);
+  std::cerr << "-- init pose: \n" << new_init_pose.translation() << std::endl;
+
   if(X().isApprox(Eigen::Isometry2f::Identity())){
-    _laser_in_world.translation() = initial_pose_.translation()*0.05;
+
+    _laser_in_world.translation() = new_init_pose.translation();
     _laser_in_world.linear() = initial_pose_.linear();
     std::cerr << "-- first pose " << std::endl;
+
   }
   else{
     _laser_in_world = initial_pose_;
