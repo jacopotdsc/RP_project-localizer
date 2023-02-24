@@ -32,8 +32,8 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
 
   Map world_map = (*_map);
 
-  auto map_rows = 100 * std::ceil( world_map.rows() * world_map.resolution() );
-  auto map_cols = 100 * std::ceil( world_map.cols() * world_map.resolution() );
+  auto map_rows = std::ceil( world_map.rows() * world_map.resolution() );
+  auto map_cols = std::ceil( world_map.cols() * world_map.resolution() );
 
   cv::Size2i matrix_size = _map->size();
   auto mat_rows = matrix_size.height;
@@ -42,29 +42,31 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
   if( setMap_debug ){ std::cerr << "-- setMap -> rows: " << mat_rows << ", map_rows: " << map_rows << std::endl;
                       std::cerr << "-- setMap -> cols: " << mat_cols << ", map_cols: " << map_cols << std::endl; }
 
-  float orig_x = -53.45;
-  float orig_y = -21.64;
+  float orig_x = (mat_rows/2)* world_map.resolution();
+  float orig_y = (mat_cols/2)* world_map.resolution();
   std::cerr << "origin.x = " << orig_x << "\norigin.y = " << orig_y << std::endl;
 
+  int count = 0;
   for( int r=0; r < mat_rows; r++){
     for( int c=0; c < mat_cols; c++){
 
       auto point_in_grid = (*_map)(r,c);
 
       if(point_in_grid == CellType::Occupied){
-        int x_map = std::floor( r * _map->resolution() );
-        int y_map = std::floor( c * _map->resolution() );
+        float x_map = r * _map->resolution() - orig_x;
+        float y_map = c * _map->resolution() - orig_y;
 
-        Eigen::Vector2f converted_point = Eigen::Vector2f(r, c);
-        _obst_vect.push_back(converted_point);
+        Eigen::Vector2f converted_point = Eigen::Vector2f(x_map, y_map);
+        //std::cerr << "converted point ---> " << converted_point[0] << ", " << converted_point[1] << std::endl;
+        //_obst_vect.push_back(converted_point);
 
-        /*
+        
         if (std::find(_obst_vect.begin(), _obst_vect.end(), converted_point) != _obst_vect.end()) {
           continue;
         }
         else{
           _obst_vect.push_back(converted_point);
-        }*/
+        }
         
         
         //std::cerr << converted_point << std::endl;
@@ -84,7 +86,7 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
 
 }
 
-/**
+/**_map->origin().x()
  * @brief Set the current estimate for laser_in_world
  *
  * @param initial_pose_
@@ -92,27 +94,26 @@ void Localizer2D::setMap(std::shared_ptr<Map> map_) {
 void Localizer2D::setInitialPose(const Eigen::Isometry2f& initial_pose_) {
 
   Eigen::Isometry2f new_init_pose;
-  Eigen::Vector2f new_vector;
-  new_vector.x() = _map->origin().x();
-  new_vector.y() = _map->origin().y();
+  //Eigen::Vector2f new_vector;
+  //new_vector.x() = _map->origin().x();
+  //new_vector.y() = _map->origin().y();
 
-  new_init_pose.translation() = initial_pose_.translation();
-
+  new_init_pose.translation()[0] = initial_pose_.translation()[0] * _map->resolution() - (_map->rows()/2)* _map->resolution(); 
+  new_init_pose.translation()[1] = initial_pose_.translation()[1] * _map->resolution() - (_map->cols()/2)* _map->resolution(); 
+  
   //new_init_pose.translation()[0] = std::ceil( new_init_pose.translation()[0] * _map->resolution() - 52 );
   //new_init_pose.translation()[1] = std::ceil( new_init_pose.translation()[1] * _map->resolution() - 22);
   std::cerr << "-- init pose: \n" << new_init_pose.translation() << std::endl;
 
   if(X().isApprox(Eigen::Isometry2f::Identity())){
-
     _laser_in_world.translation() = new_init_pose.translation();
     _laser_in_world.linear() = initial_pose_.linear();
     std::cerr << "-- first pose " << std::endl;
-
   }
   else{
     _laser_in_world = initial_pose_;
   }
-  std::cerr << "-- setted new pose" << std::endl;
+  std::cerr << "-- setted new pose:" << _laser_in_world.translation()[0] << _laser_in_world.translation()[1] << std::endl;
 }
 
 /**

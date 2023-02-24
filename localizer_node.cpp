@@ -163,6 +163,8 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
   float amax = msg_->angle_max;
   float ainc = msg_->angle_increment;
 
+  //std::cerr << "-- rmax: " << rmax << std::endl;
+
   localizer.setLaserParams( rmin, rmax, amin, amax, ainc );
 
   /** 
