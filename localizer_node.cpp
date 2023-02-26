@@ -100,11 +100,11 @@ void callback_map(const nav_msgs::OccupancyGrid::ConstPtr& msg_) {
   if(!map_ptr->initialized()){
     map_ptr->loadOccupancyGrid(msg_);
 
-    std::cerr << "-- map_ptr, occupancy grid" << map_ptr << std::endl;
-    std::cerr << "-- loadOccupancyGrid\n";
+    //std::cerr << "-- map_ptr, occupancy grid"  << map_ptr << std::endl;
+    //std::cerr << "-- loadOccupancyGrid\n";
 
     localizer.setMap(map_ptr);
-    std::cerr << "-- setMap\n";
+    std::cerr << "-- map setted -> start\n";
   }
 }
 
@@ -123,10 +123,6 @@ void callback_initialpose(
     Eigen::Isometry2f iso;
     pose2isometry(msg_->pose.pose,iso);
     localizer.setInitialPose(iso);
-    
-    std::cerr << localizer.X().translation() << std::endl;
-    std::cerr << localizer.X().linear() << std::endl;
-    std::cerr << "-- setInitialPose\n";
 
 }
 
@@ -211,5 +207,6 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
   sensor_msgs::LaserScan out_scan = *msg_;
   out_scan.header.frame_id = FRAME_LASER;
 
-  pub_scan.publish(out_scan);
+  // uncomment to see plotted point in rviz
+  //pub_scan.publish(out_scan);
 }
