@@ -1,7 +1,7 @@
 <launch>
-    <node name="stage_ros" pkg="stage_ros" type="stageros" args="/home/ubuntu/Desktop/RBproject/test_data/cappero.world"/>
-    <node name="map_server" pkg="map_server" type="map_server" args="/home/ubuntu/Desktop/RBproject/test_data/cappero_map.yaml"/>
-    <node type="rviz" name="rviz" pkg="rviz" args="-d /home/ubuntu/Desktop/RBproject/test_data/rviz.rviz" />
-    <node name="localizer" pkg="localizer" type="localizer_node" />
+    <node name="stage_ros" pkg="stage_ros" type="stageros" args="/home/ubuntu/Desktop/rp_project_w/src/localizer/test_data/cappero.world"/>
+    <node name="map_server" pkg="map_server" type="map_server" args="/home/ubuntu/Desktop/rp_project_w/src/localizer/test_data/cappero_map.yaml"/>
+    <node type="rviz" name="rviz" pkg="rviz" args="-d /home/ubuntu/Desktop/rp_project_w/src/localizer/test_data/rviz.rviz" />
+    <node name="localizer_node" pkg="localizer" type="localizer_node" />
 </launch>
 

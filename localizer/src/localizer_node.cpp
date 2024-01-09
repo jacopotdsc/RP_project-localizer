@@ -138,6 +138,7 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
 
   if(!map_ptr->initialized()) return;
 
+  ROS_INFO("I heard new: LaserScan_msg ");
   if(last_scan_msg == nullptr || last_scan_msg->ranges!= msg_->ranges){
     ROS_INFO("I heard new: LaserScan_msg ");
     last_scan_msg = msg_;
@@ -208,5 +209,5 @@ void callback_scan(const sensor_msgs::LaserScan::ConstPtr& msg_) {
   out_scan.header.frame_id = FRAME_LASER;
 
   // uncomment to see plotted point in rviz
-  //pub_scan.publish(out_scan);
+  pub_scan.publish(out_scan);
 }
